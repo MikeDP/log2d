@@ -50,6 +50,11 @@ class Log():
             self.to_file = True
         if kwargs.get("to_file") and "to_stdout" not in kwargs:
             self.to_stdout = False
+        if "udp" in kwargs:
+            self.to_udp = True
+            self.udp = kwargs["udp"]
+        else:
+            self.to_udp = False
         for handler in self.get_handlers():
             self.logger.addHandler(handler)
         setattr(Log, self.name, self.logger)
@@ -73,6 +78,12 @@ class Log():
             logStreamFormatter = logging.Formatter(fmt=self.fmt, datefmt=self.datefmt)
             handler = logging.StreamHandler(stream=sys.stdout)
             handler.setFormatter(logStreamFormatter)
+            handler.setLevel(level=self.level_int)
+            handlers += [handler]
+        if self.to_udp:
+            logUDPFormatter = logging.Formatter(fmt=self.fmt, datefmt=self.datefmt)
+            handler = UDPHandler(*self.udp)
+            handler.setFormatter(logUDPFormatter)
             handler.setLevel(level=self.level_int)
             handlers += [handler]
         return handlers
