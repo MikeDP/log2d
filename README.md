@@ -88,16 +88,6 @@ failures|DEBUG   |2022-10-25T19:35:06+0100|Insert your failure message here
 >
 > _The default log level used by `log2d` is actually DEBUG, whereas the `logging` default is WARNING.  This change is intended to make things safer and more predictable for new users who might otherwise be sending DEBUG and INFO level messages and wondering why they're not being logged._
 
-### **Search your log**
-You can search your log (or any other log) for any text or messages above a particular level and within a particular time period, and return a list of found records.
-```
-log_search = Log("MyApp", path="/.output")
-Res = log_search.find(level="error")  # Returns a list of all ERROR and above messages in last 7 days
-Res = log_search.find(text="except", ignorecase=True, deltadays=-31)  # Case insensitive search for all messages
-                                                                        containing 'except' within the last month
-Res = log_search.find(logname="/path/to/logfile")  # Returns all entries in the named logfile in the last 7 days
-```
-
 ## **ABOUT LOGGER NAMES**
 
 1) You **can** create a logger name with spaces and other characters rather than underscores, but you wouldn't then be able to use Python's nice `.attribute` notation.  If your log name was "my main log" you'd need to use `getattr(Log, "my main log").warning("...")` instead, which is a bit messy.  Best to just use underscores if you can.
@@ -129,6 +119,21 @@ If you don't want to use this 'inheritance' feature, just avoid using the name "
 > _(See also USING LOGGING AND LOG2D AT THE SAME TIME below)_
 
 ## **OTHER KEYWORD OPTIONS AND UTILITY METHODS**
+
+### **Search your log**
+The `.find()` method helps you easily search for text in messages above a particular level and/or within a particular time period:
+```
+log_to_search = Log("MyApp", path="./output")
+
+results = log_to_search.find(level="error")
+# Returns a list of all ERROR and above messages in last 7 days
+
+results = log_to_search.find(text="except", ignorecase=True, deltadays=-31)
+# Case insensitive search for all messages containing 'except' within the last month
+
+results = log_to_search.find(logname="/path/to/logfile")
+# Returns all entries in the named logfile in the last 7 days
+```
 
 ### **Add Custom logging levels**
 
@@ -437,3 +442,5 @@ I'd be delighted to hear any suggestions, bug reports, or comments in the form o
 If you're in paid employment and `log2d` has saved you even a few minutes' effort, please consider how much this gift is worth based on your daily/hourly earnings, and whether it might feel good to at least leave a nice comment on BuyMeaCoffee.com?  Thank you.
 
 <a href="https://www.buymeacoffee.com/pfython" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/arial-yellow.png" alt="Buy Me A Coffee" width="217px" ></a>
+
+**Special Thanks** to [Mike Pollard](https://github.com/MikeDP) for the `.find()` utility.
