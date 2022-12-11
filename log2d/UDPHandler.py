@@ -4,29 +4,23 @@ A 'logging' (and hence log2d) datagram handler that sends a log
 message to an arbitrary UDP port as a json dict. Json is used as it
 is faster and mores secure than pickle (has issues)
 
-V0.1  2/12/22  MDP alpha
+V0.1  2/12/22  MDP beta
 
 """
 import json
-import logging
-import logging.config
-import logging.handlers
-import struct
 import socket
-from logging.handlers import SocketHandler
-
-
-
+import struct
+from logging.handlers import DatagramHandler, SocketHandler
 
 """  Typical json log record
-{'name': 'testlogname', 'msg': 'My log message', 'args': None, 'levelname': 'DEBUG', 
-'levelno': 10, 'pathname': '/home/mike/PythonProjects/log2d/log2d/log2d/__init__.py', 
-'filename': '__init__.py', 'module': '__init__', 'exc_info': None, 'exc_text': None, 
-'stack_info': None, 'lineno': 119, 'funcName': '__call__', 'created': 1670015256.365754, 
-'msecs': 365.7538890838623, 'relativeCreated': 27.306079864501953, 'thread': 140241014282048, 
+{'name': 'testlogname', 'msg': 'My log message', 'args': None, 'levelname': 'DEBUG',
+'levelno': 10, 'pathname': '/home/JB/path/to/app/appname.py',
+'filename': 'appname.py.py', 'module': '__init__', 'exc_info': None, 'exc_text': None,
+'stack_info': None, 'lineno': 119, 'funcName': '__call__', 'created': 1670015256.365754,
+'msecs': 365.7538890838623, 'relativeCreated': 27.306079864501953, 'thread': 140241014282048,
 'threadName': 'MainThread', 'processName': 'MainProcess', 'process': 72843, 'command': 'LOG'}
 
-Not required items
+Not required items?
 
 ignoreList = ['args', 'pathname', 'exc_info', 'exc_text', 'stack_info', 'lineno',
     'filename', 'msecs', 'relativeCreated', 'thread', 'threadName', 'processName', 'process']
@@ -34,14 +28,14 @@ ignoreList = ['args', 'pathname', 'exc_info', 'exc_text', 'stack_info', 'lineno'
 """
 
 _ignoreList = ['pathname', 'exc_info', 'exc_text', 'stack_info', 'lineno',
-    'filename', 'msecs', 'relativeCreated', 'thread', 'threadName', 'processName', 'process'] # args
+    'filename', 'msecs', 'relativeCreated', 'thread', 'threadName', 'processName', 'process']
 
 
-class UDPHandler(logging.handlers.DatagramHandler):  # Inherit from logging.Handler
+class UDPHandler(DatagramHandler):  # Inherit from logging.Handler.DatagramHandler
     """
     Handler class which writes logging records, in json format, to
-    a UDP socket.  The logRecord's dictionary (__dict__), is abstracted 
-    for required items which makes it a smaller packet to transmit and 
+    a UDP socket.  The logRecord's dictionary (__dict__), is abstracted
+    for required items which makes it a smaller packet to transmit and
     simpler to decode at the recieving end - just use json.dumps()
     """
 
@@ -70,7 +64,8 @@ class UDPHandler(logging.handlers.DatagramHandler):  # Inherit from logging.Hand
         """
         if self.sock is None:
             self.createSocket()
-        self.sock.sendto(s, self.address)
+        if s:
+            self.sock.sendto(s, self.address)
 
     def makePickle(self, record) -> str:
         """
@@ -78,7 +73,7 @@ class UDPHandler(logging.handlers.DatagramHandler):  # Inherit from logging.Hand
         """
         exInf = record.exc_info
         if exInf:
-            # TODO: sort any traceback text 
+            # TODO: sort any traceback text
             _ = self.format(record)
         # Will only work when record only contains json serialisable objects
         M = dict(record.__dict__)
@@ -89,10 +84,16 @@ class UDPHandler(logging.handlers.DatagramHandler):  # Inherit from logging.Hand
         M['fmt'] = self.formatter._fmt
         msg = M.get("msg", record.getMessage())
         M['msg'] = msg
+        """
         # pop other crap we don't need
-        #for item in _ignoreList:
-        #    M.pop(item, None)
+        for item in _ignoreList:
+            M.pop(item, None)
+        """
         # Now return preceed by 4 byte length
-        d = json.dumps(M, default=str).encode()
-        dl = struct.pack(">L", len(d))
+        try:
+            d = json.dumps(M, default=str).encode('UTF-8')
+            dl = struct.pack(">L", len(d))
+        except Exception as e:
+            print(f"Exception during makePickle: {e}")
+            return None
         return dl + d
