@@ -99,7 +99,13 @@ The remote listener receives a complete `LogRecord` dict for the log message.
 
 ## **ABOUT LOGGER NAMES**
 
-1) You **can** create a logger name with spaces and other characters rather than underscores, but you wouldn't then be able to use Python's nice `.attribute` notation.  If your log name was "my maUDP doesn't guarantee the packets will get to the right destinations.in log" you'd need to use `getattr(Log, "my main log").warning("...")` instead, which is a bit messy.  Best to just use UDP doesn't guarantee the packets will get to the right destinations.
+1) You **can** create a logger name with spaces and other characters rather than underscores, but you wouldn't then be able to use Python's nice `.attribute` notation.  If your log name was "my main log" you'd need to use `getattr(Log, "my main log").warning("...")` instead, which is a bit messy.  Best to just use underscores if you can.
+
+
+2) Just as in the standard `logging` module, the name "root" is reserved for a special type of logger which actually inherits from other loggers.  This can be very helpful if you want a single "master" logger that records absolutely everything, but also a bit annoying if you weren't aware of it and have already explicitly disabled output at a particular level, only to see it appear in your "root" logger.  Here's a quick example to demonstrate how this works:
+
+```
+Log("main")
 Log.main.info("This is the MAIN logger")
 
 Output:
@@ -170,7 +176,7 @@ _ = mylog.add_level("NewError", below="ERROR")
 mylog.add_level("TRACE", 15)
 Log.mylog.trace("Trace message...")
 ```
-### **Log to centralised UDP listner
+### **Log to centralised UDP listner**
 You can send log messages to a centralised logger on your LAN.  
 ```
 remote_host = "<broadcast>"  # or 'localhost' or resolvable name or IP
@@ -194,9 +200,8 @@ logger.addHandler(f_handler)
 lrec = logging.makeLogRecord(MSG)
 # and send it to the log
 logger.handle(lrec)
-'''
-> NOTE: User Datagram Protocol (UDP) is a communications protocol that is primarily used to establish low-latency and loss-tolerating connections over networks. _UDP doesn't guarantee that log packets will get to the right destinations and log2d doesn't know!_  If it's crucial your message is logged, don't rely on this alone, you need to check yourself.
-
+```
+> *NOTE*: User Datagram Protocol (UDP) is a connectionless protocol that is primarily used to establish low-latency and loss-tolerating communication over networks. _UDP doesn't guarantee that log packets will get to the right destinations and log2d doesn't know!_  If it's crucial your message is logged, don't rely on this alone, you need to check yourself.
 ### **Search a log**
 ```
 from log2d import Log
