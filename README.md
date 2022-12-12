@@ -465,7 +465,7 @@ Log.disable_rootlogger()
 
 This is a bit of a blunt instrument and basically finds all the Handlers used by RootLogger (`logging.Logger.root.handlers`) and runs the `.removeHandler()` method on them.
 
-If neither of these approaches give you what you need, you can dive a bit deeper into the `Log.get_handlers` method of `log2d` or see above for accessubg the underlying `logging.Logger` object.
+If neither of these approaches give you what you need, you can dive a bit deeper into the `Log.get_handlers` method of `log2d` or see above for accessing the underlying `logging.Logger` object.
 
 If you find yourself doing this, you'll inevitably find yourself reading the standard library `logging` documentation which of course goes against the very reason for `log2d`'s existence - to offer simple, sane, and sensible logging _without_ the pain of having to learn its innner workings.  So if you've reached this point and need more control or sophistication with your logging, then `log2d` has probably served it's purpose and you're ready to move onwards and upwards!
 
