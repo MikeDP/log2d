@@ -88,15 +88,18 @@ failures|DEBUG   |2022-10-25T19:35:06+0100|Insert your failure message here
 >
 > _The default log level used by `log2d` is actually DEBUG, whereas the `logging` default is WARNING.  This change is intended to make things safer and more predictable for new users who might otherwise be sending DEBUG and INFO level messages and wondering why they're not being logged._
 
-## **ABOUT LOGGER NAMES**
-
-1) You **can** create a logger name with spaces and other characters rather than underscores, but you wouldn't then be able to use Python's nice `.attribute` notation.  If your log name was "my main log" you'd need to use `getattr(Log, "my main log").warning("...")` instead, which is a bit messy.  Best to just use underscores if you can.
-
-
-2) Just as in the standard `logging` module, the name "root" is reserved for a special type of logger which actually inherits from other loggers.  This can be very helpful if you want a single "master" logger that records absolutely everything, but also a bit annoying if you weren't aware of it and have already explicitly disabled output at a particular level, only to see it appear in your "root" logger.  Here's a quick example to demonstrate how this works:
+### **Log to a remote UDP listener**
+You can send log messages to an arbitrary remote UDP destination for centralised logging.
 
 ```
-Log("main")
+remote_log = Log("summary", udp=("192.168.1.200", 6666))   
+remote_log("This goes to the remote listner and local console)
+```
+The remote listener receives a complete `LogRecord` dict for the log message.
+
+## **ABOUT LOGGER NAMES**
+
+1) You **can** create a logger name with spaces and other characters rather than underscores, but you wouldn't then be able to use Python's nice `.attribute` notation.  If your log name was "my maUDP doesn't guarantee the packets will get to the right destinations.in log" you'd need to use `getattr(Log, "my main log").warning("...")` instead, which is a bit messy.  Best to just use UDP doesn't guarantee the packets will get to the right destinations.
 Log.main.info("This is the MAIN logger")
 
 Output:
@@ -167,6 +170,32 @@ _ = mylog.add_level("NewError", below="ERROR")
 mylog.add_level("TRACE", 15)
 Log.mylog.trace("Trace message...")
 ```
+### **Log to centralised UDP listner
+You can send log messages to a centralised logger on your LAN.  
+```
+remote_host = "<broadcast>"  # or 'localhost' or resolvable name or IP
+remote_port = 6666           # any convenient port number
+remote_UDP = (remote_host, remote_port)
+remote_log = Log("summary", udp=remote_UDP)  # Broadcasts message to LAN
+or
+two_logs = Log("localandremote", to_file=True, to_stdout=False, udp=("192.168.5.100", 50005))
+two_logs("This is logged both locally and remotely but not to the console")
+```
+The remote log listener receives a complete `LogRecord` dict that contains *all* the information the local logging instance produced. At the receiver, you can handle the `LogRecord` any way you like, e.g.
+```
+# MSG is the complete LogRecord dict received.
+logger = logging.getlogger(__name__)
+# create, format and add log handler
+f_handler = logging.FileHandler(FName( MSG['name']))
+f_format = logging.Formatter(MSG['fmt'], MSG['datefmt']) # formats passed in from sending log2d
+f_handler.setFormatter(f_format)
+logger.addHandler(f_handler)
+# Recreate the received LogRecord - you can modify MSG as you like first.
+lrec = logging.makeLogRecord(MSG)
+# and send it to the log
+logger.handle(lrec)
+'''
+> NOTE: User Datagram Protocol (UDP) is a communications protocol that is primarily used to establish low-latency and loss-tolerating connections over networks. _UDP doesn't guarantee that log packets will get to the right destinations and log2d doesn't know!_  If it's crucial your message is logged, don't rely on this alone, you need to check yourself.
 
 ### **Search a log**
 ```
