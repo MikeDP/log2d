@@ -444,6 +444,45 @@ Log("retries")
 Log("errors")
 ```
 
+### **Recipe 7: Example using centralised logging via UDP**
+If you log remotely, it's useful to log the _source_ (hostname and application) along with the message so you know which machine the message comes from.  You can add this information to the LogRecord as follows:
+```
+import os, sys
+from pathlib import Path
+from log2d import Log
+
+HOST = os.uname().nodename.upper()     # Machine name
+APP = Path(sys.argv[0]).stem.upper()   # Application
+HOSTAPP = f"{HOST}:{APP}"
+
+# UDP logger listener address
+UDP_DEST = ("<broadcast>", 6666)
+
+# Message formats - NOTE %hostapp
+msgFmt = "%(hostapp)s|%(asctime)s|%(levelname)-8s|%(message)s"    
+dateFmt = "%Y-%m-%dT%H:%M:%S"
+
+# Create logger
+LG = Log('my_remote_log', dateformat=dateFmt, fmt=msgFmt, udp=UDP_DEST)
+
+# Send message as usual - NOTE 'extra' parameter contains 'hostapp' dict
+LG.my_remote_log.warning("This is a warning message!", extra={'hostapp': HOSTAPP})
+
+"""
+  The UDP listener will receive a dict structured as follows. Note the 'hostapp' value in the record.
+
+  {'name': 'my_remote_log', 'msg': 'This is a warning message!', 'args': [], 'levelname': 'WARNING', 'levelno': 30,
+  'pathname': 'my_app.py', 'filename': 'my_app.py', 'module': 'logit', 'exc_info': None, 'exc_text': None,
+  'stack_info': None, 'lineno': 138, 'funcName': 'logit', 'created': 1670860819.55095, 'msecs': 550.9500503540039,
+  'relativeCreated': 16.462326049804688, 'thread': 140532926601024, 'threadName': 'MainThread', 'processName': 'MainProcess',
+  'process': 376462, 'hostapp': 'MYLAPTOP:MY_APP', 'datefmt': '%Y-%m-%dT%H:%M:%S',
+  'fmt': '%(hostapp)s|%(asctime)s|%(levelname)-8s|%(message)s'}
+
+  and, when logged using `handle(makeLogRecord(<dict>))`, the final log entry will be:
+
+MYLAPTOP:MY_APP|2022-12-12T16:00:19|WARNING |This is a warning message!
+"""
+```
 
 ## **USING LOGGING AND LOG2D AT THE SAME TIME**
 
