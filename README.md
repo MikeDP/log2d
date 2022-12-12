@@ -93,7 +93,7 @@ You can send log messages to an arbitrary remote UDP destination for centralised
 
 ```
 remote_log = Log("summary", udp=("192.168.1.200", 6666))   
-remote_log("This goes to the remote listner and local console)
+remote_log("This goes to the remote listener and local console)
 ```
 The remote listener receives a complete `LogRecord` dict for the log message.
 
@@ -176,7 +176,7 @@ _ = mylog.add_level("NewError", below="ERROR")
 mylog.add_level("TRACE", 15)
 Log.mylog.trace("Trace message...")
 ```
-### **Log to centralised UDP listner**
+### **Log to centralised UDP listener**
 You can send log messages to a centralised logger on your LAN.  
 ```
 remote_host = "<broadcast>"  # or 'localhost' or resolvable name or IP
