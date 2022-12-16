@@ -129,21 +129,6 @@ If you don't want to use this 'inheritance' feature, just avoid using the name "
 
 ## **OTHER KEYWORD OPTIONS AND UTILITY METHODS**
 
-### **Search your log**
-The `.find()` method helps you easily search for text in messages above a particular level and/or within a particular time period:
-```
-log_to_search = Log("MyApp", path="./output")
-
-results = log_to_search.find(level="error")
-# Returns a list of all ERROR and above messages in last 7 days
-
-results = log_to_search.find(text="except", ignorecase=True, deltadays=-31)
-# Case insensitive search for all messages containing 'except' within the last month
-
-results = log_to_search.find(logname="/path/to/logfile")
-# Returns all entries in the named logfile in the last 7 days
-```
-
 ### **Add Custom logging levels**
 
 ```
@@ -203,41 +188,52 @@ logger.handle(lrec)
 ```
 > *NOTE*: User Datagram Protocol (UDP) is a connectionless protocol that is primarily used to establish low-latency and loss-tolerating communication over networks. _UDP doesn't guarantee that log packets will get to the right destinations and log2d doesn't know!_  If it's crucial your message is logged, don't rely on this alone, you need to check yourself.
 ### **Search a log**
-```
-from log2d import Log
 
+The `.find()` method helps you easily search for text in messages above a particular level and/or within a particular time period:
+```
 mylog = Log("testlog", to_file=True)
 Log.testlog.info("Test info message")
+Log.testlog.error("Test error message")
+Log.testlog.info("Test info message")
+Log.testlog.info("Three line message\n\twith more data on this line\n\t\tand also on this line too!")
+Log.testlog.info("Test info message")
 
-Res = mylog.find()   # Default: all entries for last seven days
+mylog.find()
+# Returns all entries in the named logfile in the last 7 days (default)
 
-Output: Res is a list containing 8 items
-testlog|FAIL    |2022-11-14T19:25:45+0000|Test error message at added level: Fail!
-testlog|INFO    |2022-11-18T11:17:49+0000|Test info message
-testlog|ERROR   |2022-11-18T11:22:37+0000|Test error message
-testlog|INFO    |2022-11-19T08:39:40+0000|Test info message
-testlog|SUCCESS |2022-11-19T08:40:04+0000|Three line message
-    with more data on this line
-      and also on this line too!
-testlog|INFO    |2022-11-19T08:40:48+0000|Test info message
-```
-### **Search above level**
-```
-...
-Res = mylog.find(level="error")
-Output:  Res is
-testlog|ERROR   |2022-11-18T11:22:37+0000|Test error message
+Output:
+['testlog|INFO    |2022-12-10T10:07:07+0000|Test info message',
+ 'testlog|ERROR   |2022-12-10T10:07:07+0000|Test error message',
+ 'testlog|INFO    |2022-12-10T10:07:08+0000|Test info message',
+ 'testlog|INFO    |2022-12-10T10:07:08+0000|Three line message',
+ 'with more data on this line',
+ 'and also on this line too!',
+ 'testlog|INFO    |2022-12-10T10:07:08+0000|Test info message']
 ```
 
-### **Search for text**
-```
-...
-Res = mylog.find(text="error")
-Output:  Res is
-testlog|FAIL    |2022-11-14T19:25:45+0000|Test error message at added level: Fail!
-testlog|ERROR   |2022-11-18T11:22:37+0000|Test error message
+You can specify a minimum logging level as follows:
 
 ```
+mylog.find(level="error")
+
+Output:
+['testlog|ERROR   |2022-12-10T10:07:07+0000|Test error message']
+```
+
+And you can search for particular text and set case sensisitive like this:
+
+```
+results = mylog.find(text="data", ignorecase=True, deltadays=-31)
+# Case insensitive search for all messages containing 'data' within the 31 days
+```
+
+If you want to search a log file by path e.g. one not created by `log2d` you can use the Class method:
+
+```
+results = Log.find(path="some_other_log.log")
+```
+
+
 ### **Create a new log file for each session overwriting the previous file each time:**
 
 ```

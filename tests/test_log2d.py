@@ -1,57 +1,114 @@
 import pytest
+import logging
+import time
+from datetime import datetime, timedelta
 
 from log2d import Log, Path
 
+def cleanup():
+    """ Delete global `mylog` and its log file; delete Handler """
+    if "mylog" in globals():
+        global mylog
+        for handler in mylog.logger.handlers:
+            mylog.logger.removeHandler(handler)
+            handler.close()
+        del mylog
+    if Log.index.get('mylog'):
+        del Log.index['mylog']
+    path = Path("mylog.log")
+    logging.shutdown()
+    if path.is_file():
+        print("Deleting: mylog.log")
+        path.unlink()
+
+def create():
+    """
+    Create a global log2d instance `mylog`
+    Output to file and console; overwrite mode
+    """
+    cleanup()
+    global mylog
+    mylog = Log("mylog", to_file=True, to_stdout=True, mode="w")
+    print("Logging to console and mylog.log")
+
+def create_mylog(function):
+    """
+    A decorator to create and eventually clean up a generic test logger object.
+    Simply insert a line `@create_mylog` above `def test_X():`
+    """
+    def wrapper(*args, **kwargs):
+        create()
+        try:
+            result = function(*args, **kwargs)
+            cleanup()
+        except AssertionError:
+            cleanup()
+            raise
+        return result
+    return wrapper
+
+def create_dummy_log():
+    cleanup()
+    a_while_ago = datetime.now()- timedelta(days=8)
+    with open("mylog.log", "w") as file:
+        for index in range(6):
+            timestamp = a_while_ago + timedelta(days=index)
+            file.write(f"mylog|INFO    |{timestamp.strftime('%Y-%m-%dT%H:%M:%S%z+0000')}|Log message\n")
+        file.write("  Here is additional line 1\n   Additional line 2 followed by a blank line\n\n")
+    global mylog
+    mylog = Log("mylog", to_file=True, to_stdout=True)
+    print("Dummy log created: mylog.log")
+
+@create_mylog
 def test_add_level():
     """Test by visual inspection of console output"""
-    mylog = Log("mylog")
     Log.mylog.debug("Debugging message...")
     mylog.add_level("SUCCESS", 25)
     Log.mylog.success("Success message...")
 
+@create_mylog
 def test_cant_add_existing_level():
     with pytest.raises(AttributeError):
-        mylog = Log("mylog")
         mylog.add_level("DEBUG", 20)
 
+@create_mylog
 def test_add_level_above_or_below():
-    mylog = Log("mylog")
     mylog.add_level("PreError", below="ERROR")
     Log.mylog.preerror(f"New log level {logging.PREERROR} below ERROR")
     mylog.add_level("PostInfo", above="INFO")
     Log.mylog.postinfo(f"New log level {logging.POSTINFO} above INFO ")
 
 def test_defaults():
-    main = Log("main")
-    assert main.name == 'main'
-    assert main.mode == 'a'
-    assert main.path
-    assert main.level == 'debug'
-    assert main.fmt == '%(name)s|%(levelname)-8s|%(asctime)s|%(message)s'
-    assert main.datefmt == '%Y-%m-%dT%H:%M:%S%z'
-    assert main.to_file == False
-    assert main.to_stdout == True
-    assert main.backup_count == 0
-    assert main.logger
+    mylog = Log("mylog")
+    assert mylog.name == 'mylog'
+    assert mylog.mode == 'a'
+    assert mylog.path
+    assert mylog.level == 'debug'
+    assert mylog.fmt == '%(name)s|%(levelname)-8s|%(asctime)s|%(message)s'
+    assert mylog.datefmt == '%Y-%m-%dT%H:%M:%S%z'
+    assert mylog.to_file == False
+    assert mylog.to_stdout == True
+    assert mylog.backup_count == 0
+    assert mylog.logger
+    cleanup()
 
+@create_mylog
 def test_file_log():
-    test_log = Log("Test", to_file=True, to_stdout=False)
-    test_log("Entry 1")
-    path = Path("Test.log")
+    mylog("Entry 1")
+    path = Path("mylog.log")
     assert path.is_file()
     assert path.read_text().endswith("|Entry 1\n")
-    path.unlink()
 
+@create_mylog
 def test_shortcut():
-    shortcut = Log("shortcut")
-    shortcut("This should be logged at the default log level (DEBUG)")
-    Log.shortcut.setLevel('CRITICAL')
-    shortcut("This should be logged at the new CRITICAL level")
-    Log.shortcut.info("This should not be logged")
+    mylog("This should be logged at the default log level (DEBUG)")
+    Log.mylog.setLevel('CRITICAL')
+    mylog("This should be logged at the new CRITICAL level")
+    Log.mylog.info("This should not be logged")
 
+@create_mylog
 def test_output_destination(capfd):
-    progress_log = Log("Progress", to_file=True)
-    progress_log("Starting")
+    mylog("Starting")
     out, err = capfd.readouterr()
     assert out.endswith("Starting\n")
     selenium_log = Log("Selenium", to_file=True, to_stdout=False)
@@ -59,107 +116,139 @@ def test_output_destination(capfd):
     out, err = capfd.readouterr()
     assert out == ""
 
+@create_mylog
 def test_coexist_with_logging():
     import logging
     logging.warning("This creates a 'root' logger")
     from log2d import Log
-    other = Log("other")
-    other("This will be echoed twice - 'root' and 'other'")
+    mylog("This will be echoed twice - 'root' and 'mylog'")
     Log.disable_rootlogger()
-    other("This should only appear once now")
+    mylog("This should only appear once now")
 
+@create_mylog
 def test_set_level() -> bool:
-    lg = Log("testlog")
-    success = lg.add_level("Success", above="INFO")
+    success = mylog.add_level("Success", above="INFO")
     assert success == "New log level 'success' added with value: 21"
-    fail = lg.add_level("Fail", above="SUCCESS")
-    assert fail == "New log level 'fail' added with value: 22"
+    fail = mylog.add_level("Fail", above="SUCCESS")
+    assert fail.startswith("New log level 'fail' added with value:")
 
     msg = "This should appear in all log levels above DEBUG"
-    lg.logger.success(f"{msg}: Success!")
-    lg.logger.info(f"{msg}: Info!")
-    lg.logger.fail(f"{msg}: Fail!")
+    mylog.logger.success(f"{msg}: Success!")
+    mylog.logger.info(f"{msg}: Info!")
+    mylog.logger.fail(f"{msg}: Fail!")
 
-    lg.logger.setLevel('CRITICAL')
+    mylog.logger.setLevel('CRITICAL')
     msg = "This should NOT appear in log levels below CRITICAL"
-    lg.logger.success(f"{msg}: Success!")
-    lg.logger.info(f"{msg}: Info!")
-    lg.logger.fail(f"{msg}: Fail!")
+    mylog.logger.success(f"{msg}: Success!")
+    mylog.logger.info(f"{msg}: Info!")
+    mylog.logger.fail(f"{msg}: Fail!")
+    mylog.logger.critical(f"{msg}: Fail!")
 
-   
-def test_find() -> bool:
+
+def test_find_no_file() -> bool:
     """Testing find method"""
-    _log = "findlog"
-    _HPath="."
+    cleanup()
+    mylog = Log("mylog")
+    mylog.logger.info("A log message - console only")
+    with pytest.raises(Exception):
+        result = mylog.find()
+    cleanup()
 
-    _fn = os.path.join(_HPath, _log + ".log")
-    # remove existing log
-    try:
-        os.remove(_fn)
-    except:
-        pass
+@create_mylog
+def test_find_text_1():
+    create_dummy_log()
+    mylog.logger.info(f"Message: Last line")
+    result = mylog.find()
+    assert ": Last line" in result[-1], f"FIND2: Incorrect last record"
 
-    lg = Log(_log)
-    lg.logger.info("A log message - console only")
-    Res = lg.find()
-    assert Res[0][:14] == "No log file at", f"FIND1: Found a log file - should be absent!"
 
-    # Create dummy log
-    aWhileAgo = datetime.now()- timedelta(days=8)
-    with open(_fn, "w") as dummyLog:
-        for I in range(6):
-            T = aWhileAgo + timedelta(days=I)
-            dummyLog.write(f"dummylg|INFO    |{T.strftime('%Y-%m-%dT%H:%M:%S%z+0000')}|Log message\n") 
-        dummyLog.write("  Here is additional line 1\n   Additional line 2 followed by a blank line\n\n")
+@create_mylog
+def test_find_text_2():
+    create_dummy_log()
+    mylog.logger.warning("This line won't be in search")
+    result = mylog.find('Message')
+    assert len(result) > 0, f"FIND7: 'Message' not found"
+    for line in result:
+        assert "won't" not in line, f'FIND8: Found "Won\'t" in "{line}"'
 
-    lg = Log(_log, path=_HPath)
-    msg ="Should be line in log"
-    lg.logger.info(f"{msg}: Last line")
-    Res = lg.find()
-    assert ": Last line" in Res[-1], f"FIND2: Incorrect last record"
-    sleep(1)  # wait a bit
-    T = datetime.now()
-    sleep(1)
-    lg.logger.critical(f"{msg}: New last line")
-    # Search from T:+1day
-    Res = lg.find(date=T, deltadays=1)
-    assert len(Res) == 1, f"FIND3: Expected 1 record, found {len(Res)}"
-    assert "CRITICAL" in Res[0], f"FIND4: CRITICAL message not found"
 
-    lg.logger.error(f"{msg}: Yet another last line")
-    Res = lg.find(text="error")
-    assert "ERROR" in Res[0], f"FIND5: ERROR message not found"
-    Res = lg.find(text="error", ignorecase=False)
-    assert not Res
-    Res = lg.find(level="error")
-    assert len(Res) == 2, f"FIND6: Expected 2 records, found {len(Res)}"
+@create_mylog
+def test_find_date_1():
+    create_dummy_log()
+    timestamp = datetime.now()
+    Log.mylog.critical(f"Message: New last line")
+    result = mylog.find(date=timestamp, deltadays=1)
+    assert len(result) == 1, f"FIND3: Expected 1 record, found {len(result)}"
+    assert "CRITICAL" in result[0], f"FIND4: CRITICAL message not found"
 
-    # Text searches
-    lg.logger.warning("This line won't be in search")
-    Res = lg.find('should')
-    assert len(Res) > 0, f"FIND7: 'Should' not found"
-    for ln in Res:
-        assert "won't" not in ln, f'FIND8: Found "Won\'t" in "{ln}"'
-    Res = lg.find("should", ignorecase=False)
-    assert not Res, f"FIND9: Found 'Should' with case sensitive search"
-    Res = lg.find(text='new')
-    assert len(Res) == 1, f"FIND10: Expected 1 record, found {len(Res)}"
+@create_mylog
+def test_find_by_date_2():
+    create_dummy_log()
+    timestamp = datetime.now()
+    time.sleep(1)
+    timestamp -= timedelta(days=3)
+    result = mylog.find(date=timestamp, deltadays=-3)
+    assert len(result) == 6, f"FIND11: Olddates - Expected 6 records, got {len(result)}"
+    result2 = mylog.find(date=timestamp, deltadays=-3, autoparse=True)
+    assert result == result2, f"FIND13: Autoparse - Gives different result"
 
-    # Search -5 to -8 days ago
-    T -= timedelta(days=3)
-    Res = lg.find(date=T, deltadays=-3)
-    assert len(Res) == 6, f"FIND11: Olddates - Expected 6 records, got {len(Res)}"
-    assert not Res[-1], f"FIND12: olddates - found last record was '{Res[-1]}''"
-    Res2 = lg.find(date=T, deltadays=-3, autoparse=True)
-    assert Res == Res2, f"FIND13: Autoparse - Gives different result"
+# TODO: Currently fails...
+@create_mylog
+def test_find_by_level():
+    create_dummy_log()
+    mylog.logger.error(f"Message: Yet another last line")
+    result = mylog.find(text="error")
+    assert "ERROR" in result[0], f"FIND5: ERROR message not found"
+    result = mylog.find(text="error", ignorecase=False)
+    assert not result
+    result = mylog.find(level="error")
+    assert len(result) == 6, f"FIND6: Expected 6 records, found {len(result)}"
 
-    lg1 = Log('anotherlog')
-    Res = lg1.find(logname=_fn, date=T, deltadays=-3)
-    assert len(Res) == 6, f"FIND14: Anotherlog - Expected 6 lines found {len(Res)}"
-    assert not Res[-1], f"FIND15: Anotherlog - found last line was '{Res[-1]}'"
+@create_mylog
+def test_find_ignorecase():
+    create_dummy_log()
+    result = mylog.find("Message", ignorecase=False)
+    assert not result, f"FIND9: Found 'message' with case sensitive search using 'Message'"
+    result = mylog.find("message", ignorecase=False)
+    assert result, f"FIND9: Failed to find 'message' with case sensitive search"
 
-    # Tidy up if OK
-    os.remove(_fn)
+@create_mylog
+def test_find_path_original():
+    create_dummy_log()
+    timestamp = datetime.now()
+    result = mylog.find(path="mylog.log", date=timestamp, deltadays=-3)
+    assert len(result) == 4, f"FIND14: Anotherlog - Expected 4 lines found {len(result)}"
 
-    print("FIND passes 15 tests OK")
-    return True
+def test_find_path_class_method():
+    create_dummy_log()
+    timestamp = datetime.now()
+    result = Log.find(path="mylog.log", date=timestamp, deltadays=-3)
+    assert len(result) == 6, f"FIND14: Anotherlog - Expected 6 lines found {len(result)}"
+
+# TODO: Currently fails...
+@create_mylog
+def test_find_multiline():
+    Log.mylog.info("Three line message\n\twith more data on this line\n\t\tand also on this line too!")
+    r = mylog.find()
+    assert len(r) == 2
+    assert r.count("\t") == 3
+    assert r.count("\n") == 2
+
+# TODO: Currently fails...
+@create_mylog
+def test_find_levels():
+    Log.mylog.info("Oneline")
+    assert mylog.find(level="error") == []
+    assert mylog.find(level="ERRor") == []
+    assert len(mylog.find(level="info")) == 1
+    assert len(mylog.find(level="InFo")) == 1
+
+# TODO: Currently fails...
+def test_find_without_loglevel():
+    """ fmt may not include loglevel e.g. ERROR.  Test that .find still works"""
+    fmt = Log.presets['name_and_time']
+    mylog = Log("mylog", to_file=True, mode="w", to_stdout=True, fmt=fmt)
+    mylog("This format has no log level")
+    assert len(mylog.find()) == 1
+    cleanup()
+
