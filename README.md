@@ -1,3 +1,6 @@
+# NB.  This branch has been deprecated!
+## Remote UDP logging via log2d will be developed within [log2udp.](https://github.com/MikeDP/log2udp)
+
 # `log2d` - Simple, sane, and sensible logging
 
 ![](https://media.giphy.com/media/xT8qBsOjMOcdeGJIU8/giphy.gif)
