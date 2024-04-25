@@ -155,7 +155,7 @@ Log.mylog.trace("Trace message...")
 
 ### **Search a log**
 
-The `.find()` method helps you easily search for text in messages above a particular level and/or within a particular time period:
+The `.find()` method helps you easily search for messages within a particular time period and above a particular level. *Be aware that time formats are always tricky to parse automatically. For example, don't use 'yy-mm-dd' and this will often be parsed differently in different locales*:
 ```
 mylog = Log("testlog", to_file=True)
 Log.testlog.info("Test info message")
